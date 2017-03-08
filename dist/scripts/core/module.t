@@ -25,13 +25,33 @@ function m.include_submodules(srclist, dest)
   end
 end
 
+function m.has_prefix(k, prefix)
+  if k:sub(1, prefix:len()) == prefix then
+    return true, k:sub(prefix:len() + 1)
+  else
+    return false
+  end
+end
+
 -- copy values in srctable with prefix into desttable without prefix
 -- useful when including a C api that has library_ prefix names on everything
 function m.reexport_without_prefix(srctable, prefix, desttable)
   for k,v in pairs(srctable) do
     -- only copy entries that have prefix
-    if k:sub(1, prefix:len()) == prefix then
-      desttable[k:sub(prefix:len() + 1)] = v 
+    local is_prefixed, stripped_name = m.has_prefix(k, prefix)
+    if is_prefixed then
+      desttable[stripped_name] = v
+    end
+  end
+end
+
+function m.wrap_member_funcs(c_funcs, target, prefix, ctx_name)
+  for func_name, func in pairs(c_funcs) do
+    local is_prefixed, stripped_name = m.has_prefix(func_name, prefix)
+    if is_prefixed then
+      target[stripped_name] = function(self, ...)
+        return func(self[ctx_name], ...)
+      end
     end
   end
 end
